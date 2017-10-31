@@ -1,0 +1,153 @@
+
+Analysis objectives:
+Plot, examine, and prepare series for modeling.
+
+Extract the seasonality component from the time series. 
+
+Test for stationarity and apply appropriate transformations Choose the order of an ARIMA model.
+
+Forecast the series.
+```{r}
+library('ggplot2')
+library('forecast')
+library('tseries')
+
+# read the data
+
+Data=read.csv("accidents_database_analysis.csv", header = TRUE)
+
+# convert to TS, set the frequancy to monthly timeseries 
+tsdata<-ts(Data[,11], frequency=12,start=c(2011,1), end =c(2014,12) )
+# convert to time 
+Data$dtime=as.Date(Data$dtime)
+```
+```{r}
+
+```
+
+```{r}
+plot(tsdata)
+
+
+```
+There's  sudden drop between 2012 and 2013 which may indicate a seasinality
+decomposing the series and removing the seasonality
+```{r}
+stlDemand <- stl(tsdata, s.window = "periodic") # decomposing the ts 
+
+TsDemand <-seasadj(stlDemand)
+
+plot(stlDemand)
+```
+We now have a de-seasonalized series and can proceed to the next step.
+To be ble to fit an ARIMA model series needs to be stationary(mean, variance, and autocovariance are not dependent on time)
+we preform and ADF test for stationarity
+```{r}
+# P-value should be smallar than 0.05 
+adf.test(TsDemand)
+
+```
+
+To fix this we preform differencing 
+```{r}
+TsDemand1 = diff(TsDemand, differences = 1)
+
+adf.test(TsDemand1, alternative = "stationary")
+```
+
+```{r}
+# A seasonal plot allows pattern to be seen more clearly, and can be useful in identifying years in which the pattern changes
+ggseasonplot(TsDemand1, year.labels=FALSE, continuous=TRUE)
+```
+```{r}
+# both plots show a tren in the months(Sept-Nov)
+ggseasonplot(TsDemand1, year.labels=FALSE, continuous=TRUE, polar = TRUE)
+
+```
+
+
+
+```
+```
+
+
+```{r}
+# Autocorrelations and Choosing Model Order
+Acf(TsDemand, main='ACF for Differenced Series')
+#There are significant auto correlations at lag 1 and 2 and beyond.
+
+```#Partial correlation plots show a significant spike at lag 1. This suggests that we might want to test models with AR or MA components of order 1 or 2. 
+
+
+```{r}
+Pacf(TsDemand, main='PACF for Differenced Series')
+ 
+```
+We specify non-seasonal ARIMA structure and fit the model to de-seasonalize data. Parameters (1,1,0) suggested by the automated procedure
+
+our ideal model is one with minimum AIC and BIC values
+
+```{r}
+# Fitting an ARIMA model
+auto.arima(TsDemand, seasonal=FALSE)
+
+```
+
+Examining ACF and PACF plots for model residuals.If model structure is correct, There shouldn't be any significant autocorrelations present. 
+
+
+```{r}
+fit<-auto.arima(TsDemand, seasonal=FALSE)
+tsdisplay(residuals(fit), lag.max=45, main='(1,1,0) Model Residuals')
+```
+The Blue line representing the forcasted results goes to a straight line fairly soon, which seems unlikeky given the past bahavior of the series. The model is assuming no seasonality.the plotted predictions are based on the assumption that there will be no other seasonal fluctuations in the data. Model can be improved by adding back the seasonal trend that we extracted. Another approcah is to include the components that are default in auto.Arima. 
+
+```{r}
+#Forecasting using the fitted model
+
+fcast <- forecast(fit, h=12)
+plot(fcast)
+```
+```{r}
+#ETS Model 
+fit3=ets(TsDemand)
+pred = forecast(fit3, h=12) 
+plot(pred)
+```
+After the test it's clear that ARiMA outpreforms 
+```{r}
+# use AIC to compare different models
+
+barplot(c(ETS=fit3$aic, ARIMA=fit$aic),
+        col="light blue",
+        ylab="AIC")
+```
+
+```{r}
+# Normalizing Dta 
+library(clusterSim)
+data.Normalization (Data, type = "n12",normalization="column")
+
+ts.region1<-Data$region
+ts.region1=ts(ts.region1)
+
+```
+```{r}
+
+```
+```{r}
+autoplot(ts.region1, facets = TRUE) +
+  geom_smooth() +
+  labs("Demand in different regions")
+       y = "region"
+```
+
+```{r}
+ autoplot(fit3)
+```
+
+```{r}
+autoplot(fcast)
+```
+
+
